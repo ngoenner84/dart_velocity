@@ -1,0 +1,114 @@
+import numpy as np
+from scipy.integrate import solve_ivp
+import matplotlib.pyplot as plt
+
+# Constants
+k = 1149  # Spring constant (N/m)
+m_piston = 0.01  # Mass of the piston (kg)
+m_projectile = 0.001  # Mass of the projectile (kg)
+A_piston = 0.00114  # Cross-sectional area of the piston (m^2)
+A_barrel = 0.00012668  # Cross-sectional area of the barrel (m^2)
+V0 = 0.001737  # Initial cavity volume (m^3) (adjusted to prevent excessive pressure)
+R = 8.314  # Universal gas constant (J/(mol*K))
+T = 300  # Temperature (K)
+n = .0509 #.0685 at 5 PSIG #0.086 at 10 PSIG # 0.0509 at STP  # Amount of gas (mol)
+
+# Geometry constraints
+piston_travel = 0.1524  # Max piston travel (6 inches in meters)
+barrel_length = 0.3556  # Barrel length (14 inches in meters)
+spring_preload = .215 #0.1524  # Preloaded spring compression (6 inches in meters)
+
+# Initial conditions
+x_piston_0 = 0.0  # Initial piston position (m)
+v_piston_0 = 0.0  # Initial piston velocity (m/s)
+x_projectile_0 = 0.1  # Initial projectile position (m)
+v_projectile_0 = 0.0  # Initial projectile velocity (m/s)
+
+# Function to calculate derivatives
+def dynamics(t, y):
+    x_piston, v_piston, x_projectile, v_projectile = y
+
+    # Initialize accelerations
+    a_piston = 0.0
+    a_projectile = 0.0
+
+    # Stop if the piston hits its hard stop
+    if x_piston >= piston_travel:
+        v_piston = 0
+        a_piston = 0
+    else:
+        # Correct spring compression
+        spring_compression = spring_preload - x_piston
+        spring_force = k * spring_compression if spring_compression > 0 else 0
+        
+        # Correct volume and pressure
+        volume = V0 + A_barrel * x_projectile - A_piston * x_piston
+        if volume <= 0:
+            raise ValueError("Volume became non-physical (negative or zero).")
+        pressure = n * R * T / volume
+        
+        # Forces
+        piston_force = spring_force - pressure * A_piston
+        projectile_force = pressure * A_barrel
+        
+        # Accelerations
+        a_piston = piston_force / m_piston
+        a_projectile = projectile_force / m_projectile
+    
+    # Stop if the projectile exits the barrel
+    if x_projectile >= barrel_length:
+        v_projectile = 0
+        a_projectile = 0
+
+    return [v_piston, a_piston, v_projectile, a_projectile]
+
+# Solve ODE
+initial_conditions = [x_piston_0, v_piston_0, x_projectile_0, v_projectile_0]
+time_span = (0, 0.012)  # Time span (s)
+time_eval = np.linspace(*time_span, 1000)  # Time points for evaluation
+
+solution = solve_ivp(dynamics, time_span, initial_conditions, t_eval=time_eval, method='RK45')
+
+# Extract results
+x_piston = solution.y[0]
+v_piston = solution.y[1]
+x_projectile = solution.y[2]
+v_projectile = solution.y[3]
+
+# Calculate pressure over time
+pressure = []
+for i in range(len(solution.t)):
+    volume = V0 + A_barrel * x_projectile[i] - A_piston * x_piston[i]
+    pressure.append(n * R * T / volume)
+
+# Plot results
+plt.subplot(3, 1, 1)
+plt.plot(solution.t, v_piston, label="Piston Velocity (m/s)")
+plt.plot(solution.t, v_projectile, label="Projectile Velocity (m/s)")
+plt.xlabel("Time (s)")
+plt.ylabel("Velocity (m/s)")
+plt.title("Velocity vs. Time")
+plt.legend()
+plt.grid()
+
+# Position plot
+plt.subplot(3, 1, 2)
+plt.plot(solution.t, x_piston, label="Piston Position (m)")
+plt.plot(solution.t, x_projectile, label="Projectile Position (m)")
+plt.xlabel("Time (s)")
+plt.ylabel("Position (m)")
+plt.title("Position vs. Time")
+plt.legend()
+plt.grid()
+
+# Pressure plot
+plt.subplot(3, 1, 3)
+plt.plot(solution.t, pressure, label="Pressure (Pa)")
+plt.xlabel("Time (s)")
+plt.ylabel("Pressure (Pa)")
+plt.title("Pressure vs. Time")
+plt.legend()
+plt.grid()
+
+plt.tight_layout()
+plt.show()

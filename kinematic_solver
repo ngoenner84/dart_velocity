@@ -2,21 +2,34 @@ import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 
-# Constants
-k = 1149  # Spring constant (N/m)
-m_piston = 0.01  # Mass of the piston (kg)
-m_projectile = 0.001  # Mass of the projectile (kg)
-A_piston = 0.00114  # Cross-sectional area of the piston (m^2)
-A_barrel = 0.00012668  # Cross-sectional area of the barrel (m^2)
-V0 = 0.001737  # Initial cavity volume (m^3) (adjusted to prevent excessive pressure)
-R = 8.314  # Universal gas constant (J/(mol*K))
-T = 300  # Temperature (K)
-n = .0509 #.0685 at 5 PSIG #0.086 at 10 PSIG # 0.0509 at STP  # Amount of gas (mol)
+# Inputs, convenience
+k_in = 3.88 # lb/in
+m_piston_g = 20 # piston weight in grams
+m_projectile_g = 1 # projectile weight in grams
+piston_dia_mm = 38.1 # piston dia in grams
+barrel_dia_mm = 12.7 # barrel dia in mm
+P_psi = 14.7 # Cavity pressure, PSI
+piston_travel_in = 6 # Travel from primed to stops
+barrel_length_in = 14 # Barrel length in inches
+spring_preload_in = 8 # Spring compression when primed, measure from free length
 
-# Geometry constraints
-piston_travel = 0.1524  # Max piston travel (6 inches in meters)
-barrel_length = 0.3556  # Barrel length (14 inches in meters)
-spring_preload = .215 #0.1524  # Preloaded spring compression (6 inches in meters)
+# Gas Constants
+R = 8.314  # Universal gas constant (J/(mol*K))
+T = 273.15  # Temperature (K)
+
+# Conversions
+k = 175.126835 * k_in  # Spring constant (N/m)
+m_piston = m_piston_g / 1000  # Mass of the piston (kg)
+m_projectile = m_projectile_g / 1000  # Mass of the projectile (kg)
+A_piston = np.pi / 4 * (piston_dia_mm / 1000) ** 2  # Cross-sectional area of the piston (m^2)
+A_barrel = np.pi / 4 * (barrel_dia_mm / 1000) ** 2  # Cross-sectional area of the barrel (m^2)
+piston_travel = piston_travel_in * .0254  # Max piston travel in meters (6 inches in meters)
+barrel_length = barrel_length_in * .0254  # Barrel length (14 inches in meters)
+spring_preload = spring_preload_in * .02545 #0.1524  # Preloaded spring compression (6 inches in meters)
+V0 = piston_travel * A_piston # initial volume, assumes only piston cavity
+P = 6894.76 * P_psi # Pa at STP
+n = (P * V0) / (R * T) #.0685 at 5 PSIG #0.086 at 10 PSIG # 0.0509 at STP  # Amount of gas (mol)
+
 
 # Initial conditions
 x_piston_0 = 0.0  # Initial piston position (m)
